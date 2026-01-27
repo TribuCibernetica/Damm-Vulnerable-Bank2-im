@@ -2,7 +2,7 @@ name: "Full Security Analysis - DVB2"
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: [ "main", "master", "Feature/MobSF" ]
   pull_request:
     branches: [ "main", "master" ]
 
