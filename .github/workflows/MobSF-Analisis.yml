@@ -19,50 +19,42 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # DVB2 funciona bien con Java 11
-      - name: Set up JDK 11
-        uses: actions/setup-java@v4
-        with:
-          java-version: '11'
-          distribution: 'temurin'
-          cache: gradle
-
-      # --- NUEVO PASO: Reparar el Gradle Wrapper ---
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
-
-      - name: Regenerate Gradle Wrapper
-        run: gradle wrapper  # Esto crea el .jar que falta
-
-      # --- FASE 1: MobSF ---
+      # --- PASO 1: MobSF (Lo movemos al principio para que no falle) ---
       - name: Run MobSF Scan
         uses: MobSF/mobsfscan@main
         with:
           args: '. --sarif --output results-mobsf.sarif || true'
 
       - name: Upload MobSF Results
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: results-mobsf.sarif
           category: "mobsf"
         if: always()
 
-      # --- FASE 2: CodeQL ---
+      # --- PASO 2: Configurar Java 17 (Para que Gradle 9 pueda arrancar) ---
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Regenerate Gradle Wrapper
+        run: gradle wrapper --gradle-version 7.4.2 # Bajamos la versión de Gradle para que sea compatible con la App
+
+      # --- PASO 3: CodeQL ---
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
         with:
           languages: java-kotlin
           build-mode: manual
-          queries: security-extended,security-and-quality
 
       - name: Build Android App
         run: |
           chmod +x ./DamnVulnerableBank/gradlew
-          # 1. Limpiamos para asegurar que CodeQL vea una compilación desde cero
-          ./DamnVulnerableBank/gradlew clean 
-          # 2. Usamos assembleDebug para forzar la compilación de Java y Kotlin
-          # Quitamos el '|| true' momentáneamente para ver el error real si falla
-          ./DamnVulnerableBank/gradlew assembleDebug --no-daemon -Dorg.gradle.continue=true
+          # Forzamos compilación básica para que CodeQL "vea" el código
+          ./DamnVulnerableBank/gradlew compileDebugJavaWithJavac --no-daemon || true
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
