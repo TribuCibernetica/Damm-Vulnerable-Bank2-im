@@ -50,7 +50,7 @@ jobs:
 
       - name: Build Android App
         run: |
-          chmod +x ./gradlew
+          chmod +x ./DamnVulnerableBank/gradlew
           # 1. Limpiamos para asegurar que CodeQL vea una compilación desde cero
           ./gradlew clean 
           # 2. Usamos assembleDebug para forzar la compilación de Java y Kotlin
