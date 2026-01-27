@@ -1,4 +1,4 @@
-name: "Full Security Analysis - DVB2 Final"
+name: "Full Security Analysis - DVB2 Final Force"
 
 on:
   push:
@@ -19,7 +19,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # --- FASE 1: MobSF ---
+      # --- FASE 1: MobSF (Tu garantía de resultados) ---
       - name: Run MobSF Scan
         uses: MobSF/mobsfscan@main
         with:
@@ -32,47 +32,47 @@ jobs:
           category: "mobsf"
         if: always()
 
-      # --- FASE 2: Configuración de Java ---
+      # --- FASE 2: Entorno ---
       - name: Set up JDK 11
         uses: actions/setup-java@v4
         with:
           java-version: '11'
           distribution: 'temurin'
 
-      # --- FASE 3: Reparar Gradle y NDK ---
-      - name: Fix and Build
+      # --- FASE 3: Reparación Dinámica ---
+      - name: Fix and Patch
         run: |
           SETTINGS_PATH=$(find . -name "settings.gradle" | head -n 1)
           PROJECT_ROOT=$(dirname "$SETTINGS_PATH")
           echo "PROJECT_ROOT=$PROJECT_ROOT" >> $GITHUB_ENV
           cd "$PROJECT_ROOT"
 
-          # Parche de repositorios y NDK para compatibilidad con el runner
+          # Parcheamos repositorios
           find . -name "*.gradle" -exec sed -i 's/jcenter()/google()\n        mavenCentral()/g' {} +
           find . -name "build.gradle" -exec sed -i 's/ndkVersion .*/ndkVersion "27.3.13750724"/g' {} +
 
-          # Descargar e instalar Gradle Wrapper manual (v6.7.1 es la ideal aquí)
+          # Instalamos Gradle 6.7.1 manualmente
           wget -q https://services.gradle.org/distributions/gradle-6.7.1-bin.zip
           unzip -q gradle-6.7.1-bin.zip
-          ./gradle-6.7.1/bin/gradle wrapper --gradle-version 6.7.1
-          chmod +x gradlew
+          echo "$PWD/gradle-6.7.1/bin" >> $GITHUB_PATH
 
-      # --- FASE 4: CodeQL ---
+      # --- FASE 4: CodeQL con Build Manual ---
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
         with:
           languages: java-kotlin
+          # Usamos build-mode manual pero con una trampa en el siguiente paso
           build-mode: manual
 
-      - name: Build for CodeQL
+      - name: Forced Build for CodeQL
         run: |
           cd ${{ env.PROJECT_ROOT }}
-          # 1. Limpiamos para que CodeQL vea una compilación fresca
-          ./gradlew clean 
-          # 2. 'classes' compila Java y Kotlin sin intentar armar el APK (más rápido y menos errores)
-          ./gradlew classes --no-daemon -Dorg.gradle.continue=true || true
-          # 3. Verificamos si se crearon archivos .class (opcional para debug)
-          find . -name "*.class" | wc -l
+          chmod +x gradlew
+          # Limpiamos todo rastro de compilaciones previas
+          ./gradlew clean
+          # Intentamos compilar absolutamente todo. 
+          # CodeQL observará CUALQUIER clase que logre compilarse antes del error.
+          ./gradlew compileDebugJavaWithJavac compileDebugKotlin --no-daemon || true
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
