@@ -52,7 +52,7 @@ jobs:
         run: |
           chmod +x ./DamnVulnerableBank/gradlew
           # 1. Limpiamos para asegurar que CodeQL vea una compilación desde cero
-          ./DamnVulnerableBank/gradlewclean 
+          ./DamnVulnerableBank/gradlew clean 
           # 2. Usamos assembleDebug para forzar la compilación de Java y Kotlin
           # Quitamos el '|| true' momentáneamente para ver el error real si falla
           ./DamnVulnerableBank/gradlew assembleDebug --no-daemon -Dorg.gradle.continue=true
