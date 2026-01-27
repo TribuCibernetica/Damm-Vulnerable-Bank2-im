@@ -19,7 +19,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # --- FASE 1: MobSF (Análisis Estático garantizado) ---
+      # --- FASE 1: MobSF (Análisis Estático) ---
       - name: Run MobSF Scan
         uses: MobSF/mobsfscan@main
         with:
@@ -32,16 +32,21 @@ jobs:
           category: "mobsf"
         if: always()
 
-      # --- FASE 2: CodeQL con modo 'none' (Sin compilación) ---
-      # Este modo analiza los archivos .java y .kt directamente sin invocar a Gradle
+      # --- FASE 2: CodeQL en Modo Directo ---
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
         with:
           languages: java-kotlin
-          build-mode: none # <--- LA CLAVE: Evita el error de "no code built"
+          # 'none' le dice a CodeQL: "No busques compiladores, lee los archivos"
+          build-mode: none 
           queries: security-extended,security-and-quality
 
+      # --- FASE 3: Ejecución de Análisis ---
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
+        env:
+          # Esta variable evita que el extractor de Java intente ejecutar Gradle 
+          # para resolver el grafo de dependencias, que es lo que rompe tu pipeline.
+          CODEQL_EXTRACTOR_JAVA_RUN_AUTOBUILD: "false"
         with:
           category: "/language:java-kotlin"
