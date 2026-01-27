@@ -27,6 +27,13 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
+      # --- NUEVO PASO: Reparar el Gradle Wrapper ---
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Regenerate Gradle Wrapper
+        run: gradle wrapper  # Esto crea el .jar que falta
+
       # --- FASE 1: MobSF ---
       - name: Run MobSF Scan
         uses: MobSF/mobsfscan@main
