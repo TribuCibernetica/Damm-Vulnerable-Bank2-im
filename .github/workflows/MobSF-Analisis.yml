@@ -1,4 +1,4 @@
-name: "Full Security Analysis - DVB2"
+name: "Full Security Analysis - DVB2 Legacy"
 
 on:
   push:
@@ -19,7 +19,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # --- FASE 1: MobSF (Análisis Estático) ---
+      # --- FASE 1: MobSF (Siempre funciona) ---
       - name: Run MobSF Scan
         uses: MobSF/mobsfscan@main
         with:
@@ -32,28 +32,32 @@ jobs:
           category: "mobsf"
         if: always()
 
-      # --- FASE 2: Preparación del Entorno ---
-      - name: Set up JDK 17
+      # --- FASE 2: Forzar Java 11 (Ideal para este proyecto) ---
+      - name: Set up JDK 11
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
+          java-version: '11'
           distribution: 'temurin'
-          cache: gradle
 
-      # --- FASE 3: Parcheo de JCenter y Generación de Wrapper ---
-      - name: Patch and Regenerate Gradle
+      # --- FASE 3: El "Truco" del Wrapper ---
+      - name: Fix and Build
         run: |
-          # 1. Encontrar la raíz del proyecto
+          # 1. Encontrar la raíz
           SETTINGS_PATH=$(find . -name "settings.gradle" | head -n 1)
           PROJECT_ROOT=$(dirname "$SETTINGS_PATH")
-          echo "Proyecto encontrado en: $PROJECT_ROOT"
-          
-          # 2. PARCHE: Reemplazar jcenter() por mavenCentral() en todos los archivos .gradle
-          find "$PROJECT_ROOT" -name "*.gradle" -exec sed -i 's/jcenter()/mavenCentral()/g' {} +
-          
-          # 3. Generar el wrapper compatible
           cd "$PROJECT_ROOT"
-          gradle wrapper --gradle-version 7.6
+
+          # 2. PARCHE: Limpiar jcenter y resolver el conflicto de BuildCompletionListener
+          find . -name "*.gradle" -exec sed -i 's/jcenter()/google()\n        mavenCentral()/g' {} +
+          
+          # 3. Descargar un Gradle Wrapper funcional manualmente
+          # Esto evita usar el Gradle 9 del sistema que rompe todo
+          wget https://services.gradle.org/distributions/gradle-6.7.1-bin.zip
+          unzip -q gradle-6.7.1-bin.zip
+          export PATH=$PWD/gradle-6.7.1/bin:$PATH
+          
+          # 4. Generar el wrapper local con la versión 6.7.1 (Era de oro de este repo)
+          gradle wrapper --gradle-version 6.7.1
           chmod +x ./DamnVulnerableBank/gradlew
 
       # --- FASE 4: CodeQL ---
@@ -63,15 +67,13 @@ jobs:
           languages: java-kotlin
           build-mode: manual
 
-      - name: Build Android App
+      - name: Build for CodeQL
         run: |
           SETTINGS_PATH=$(find . -name "settings.gradle" | head -n 1)
           PROJECT_ROOT=$(dirname "$SETTINGS_PATH")
           cd "$PROJECT_ROOT"
-          # Intentamos compilar. Si falla, el '|| true' permite que CodeQL analice lo que alcanzó a procesar
+          # Usamos el gradlew que acabamos de crear
           ./DamnVulnerableBank/gradlew compileDebugJavaWithJavac --no-daemon || true
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
-        with:
-          category: "/language:java-kotlin"
