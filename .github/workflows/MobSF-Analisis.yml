@@ -59,25 +59,47 @@ jobs:
           languages: java-kotlin
           build-mode: manual
 
+      # --- FASE 3: Reparación Dinámica ---
+      - name: Fix and Patch
+        run: |
+          SETTINGS_PATH=$(find . -name "settings.gradle" | head -n 1)
+          PROJECT_ROOT=$(dirname "$SETTINGS_PATH")
+          echo "PROJECT_ROOT=$PROJECT_ROOT" >> $GITHUB_ENV
+          cd "$PROJECT_ROOT"
+
+          # 1. PARCHE DE REPOSITORIOS: Cambiar jcenter por Google/MavenCentral
+          find . -name "*.gradle" -exec sed -i 's/jcenter()/google()\n        mavenCentral()/g' {} +
+          
+          # 2. PARCHE DE NDK: Forzamos el uso de la versión 27.3.13750724 que está en el runner
+          # Buscamos ndkVersion en los archivos build.gradle y lo reemplazamos
+          find . -name "build.gradle" -exec sed -i 's/ndkVersion .*/ndkVersion "27.3.13750724"/g' {} +
+          
+          # Si el archivo no tiene la línea ndkVersion, la inyectamos en el bloque android {}
+          if ! grep -q "ndkVersion" app/build.gradle; then
+            sed -i '/android {/a \    ndkVersion "27.3.13750724"' app/build.gradle
+          fi
+
+          # 3. Instalación de Gradle 6.7.1
+          wget -q https://services.gradle.org/distributions/gradle-6.7.1-bin.zip
+          unzip -q gradle-6.7.1-bin.zip
+          echo "$PWD/gradle-6.7.1/bin" >> $GITHUB_PATH
+
+      # --- FASE 4: CodeQL ---
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: java-kotlin
+          build-mode: manual
+
       - name: Forced Build (Deep Scan)
         run: |
           cd ${{ env.PROJECT_ROOT }}
-          # 1. Limpiamos el proyecto
-          gradle clean
-          
-          # 2. Desactivamos el NDK y las tareas nativas para evitar el error
-          # Usamos banderas para saltarnos la compilación de C++ y solo compilar Java/Kotlin
-          gradle compileDebugJavaWithJavac compileDebugKotlin \
+          # Usamos el binario de gradle descargado para compilar solo Java y Kotlin
+          # Desactivamos explícitamente el NDK mediante flags de comando
+          gradle clean compileDebugJavaWithJavac compileDebugKotlin \
             -Pandroid.dir.ndk="" \
-            -Pandroid.useUnifiedContactManager=true \
             --no-daemon \
             -Dorg.gradle.continue=true || true
           
-          # 3. Verificación de seguridad (Opcional: imprime si hay clases generadas)
-          echo "Clases generadas para CodeQL:"
-          find . -name "*.class" | wc -l
-          
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
-        with:
-          category: "/language:java-kotlin"
