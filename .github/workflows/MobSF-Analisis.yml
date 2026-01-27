@@ -46,10 +46,8 @@ jobs:
           PROJECT_ROOT=$(dirname "$SETTINGS_PATH")
           echo "PROJECT_ROOT=$PROJECT_ROOT" >> $GITHUB_ENV
           
-          # Parcheamos repositorios para evitar JCenter
           find "$PROJECT_ROOT" -name "*.gradle" -exec sed -i 's/jcenter()/google()\n        mavenCentral()/g' {} +
           
-          # Descargamos Gradle 6.7.1 y lo añadimos al PATH global del runner
           wget -q https://services.gradle.org/distributions/gradle-6.7.1-bin.zip
           unzip -q gradle-6.7.1-bin.zip
           echo "$PWD/gradle-6.7.1/bin" >> $GITHUB_PATH
@@ -61,12 +59,15 @@ jobs:
           languages: java-kotlin
           build-mode: manual
 
-      - name: Forced Build (Direct Binary)
+      - name: Forced Build (Deep Scan)
         run: |
           cd ${{ env.PROJECT_ROOT }}
-          # Usamos 'gradle' directamente, NO './gradlew'
-          gradle clean compileDebugJavaWithJavac compileDebugKotlin --no-daemon || true
-
+          # 1. Limpiamos para forzar re-compilación total
+          gradle clean
+          # 2. Usamos assembleDebug para que se compilen recursos, Java y Kotlin
+          # Quitamos el || true temporalmente para ver si hay un error real de compilación
+          gradle assembleDebug --no-daemon -Dorg.gradle.continue=true || gradle classes --no-daemon
+          
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
         with:
