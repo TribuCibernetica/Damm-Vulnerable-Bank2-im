@@ -39,7 +39,7 @@ jobs:
           java-version: '11'
           distribution: 'temurin'
 
-      # --- FASE 3: El "Truco" del Wrapper ---
+      # --- FASE 3: El "Truco" del Wrapper y NDK ---
       - name: Fix and Build
         run: |
           # 1. Encontrar la raíz
@@ -47,14 +47,17 @@ jobs:
           PROJECT_ROOT=$(dirname "$SETTINGS_PATH")
           cd "$PROJECT_ROOT"
 
-          # 2. PARCHE: Limpiar jcenter y resolver el conflicto de BuildCompletionListener
+          # 2. PARCHE: Eliminar JCenter y FORZAR VERSION DE NDK
           find . -name "*.gradle" -exec sed -i 's/jcenter()/google()\n        mavenCentral()/g' {} +
           
+          # Sobreescribimos la versión de NDK en el build.gradle para usar la que GitHub tiene (27.3.13750724)
+          find . -name "build.gradle" -exec sed -i 's/ndkVersion .*/ndkVersion "27.3.13750724"/g' {} +
+
           # 3. Descargar un Gradle Wrapper funcional manualmente
-          # Esto evita usar el Gradle 9 del sistema que rompe todo
           wget https://services.gradle.org/distributions/gradle-6.7.1-bin.zip
           unzip -q gradle-6.7.1-bin.zip
           export PATH=$PWD/gradle-6.7.1/bin:$PATH
+          
           
           # 4. Generar el wrapper local con la versión 6.7.1 (Era de oro de este repo)
           gradle wrapper --gradle-version 6.7.1
