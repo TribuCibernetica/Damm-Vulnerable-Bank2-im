@@ -39,29 +39,23 @@ jobs:
           java-version: '11'
           distribution: 'temurin'
 
-      # --- FASE 3: El "Truco" del Wrapper y NDK ---
+      # --- FASE 3: Reparar Gradle y NDK ---
       - name: Fix and Build
         run: |
-          # 1. Encontrar la raíz
           SETTINGS_PATH=$(find . -name "settings.gradle" | head -n 1)
           PROJECT_ROOT=$(dirname "$SETTINGS_PATH")
+          echo "PROJECT_ROOT=$PROJECT_ROOT" >> $GITHUB_ENV
           cd "$PROJECT_ROOT"
 
-          # 2. PARCHE: Eliminar JCenter y FORZAR VERSION DE NDK
+          # Parche de repositorios y NDK
           find . -name "*.gradle" -exec sed -i 's/jcenter()/google()\n        mavenCentral()/g' {} +
-          
-          # Sobreescribimos la versión de NDK en el build.gradle para usar la que GitHub tiene (27.3.13750724)
           find . -name "build.gradle" -exec sed -i 's/ndkVersion .*/ndkVersion "27.3.13750724"/g' {} +
 
-          # 3. Descargar un Gradle Wrapper funcional manualmente
-          wget https://services.gradle.org/distributions/gradle-6.7.1-bin.zip
+          # Descargar Gradle e instalar Wrapper
+          wget -q https://services.gradle.org/distributions/gradle-6.7.1-bin.zip
           unzip -q gradle-6.7.1-bin.zip
-          export PATH=$PWD/gradle-6.7.1/bin:$PATH
-          
-          
-          # 4. Generar el wrapper local con la versión 6.7.1 (Era de oro de este repo)
-          gradle wrapper --gradle-version 6.7.1
-          chmod +x ./DamnVulnerableBank/gradlew
+          ./gradle-6.7.1/bin/gradle wrapper --gradle-version 6.7.1
+          chmod +x gradlew
 
       # --- FASE 4: CodeQL ---
       - name: Initialize CodeQL
@@ -72,11 +66,12 @@ jobs:
 
       - name: Build for CodeQL
         run: |
-          SETTINGS_PATH=$(find . -name "settings.gradle" | head -n 1)
-          PROJECT_ROOT=$(dirname "$SETTINGS_PATH")
-          cd "$PROJECT_ROOT"
-          # Usamos el gradlew que acabamos de crear
-          ./DamnVulnerableBank/gradlew compileDebugJavaWithJavac --no-daemon || true
+          # Usamos la variable guardada para entrar a la carpeta correcta
+          cd ${{ env.PROJECT_ROOT }}
+          ./gradlew compileDebugJavaWithJavac --no-daemon -Dorg.gradle.continue=true || true
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3JavaWithJavac --no-daemon || true
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
