@@ -67,7 +67,12 @@ jobs:
       - name: Build for CodeQL
         run: |
           cd ${{ env.PROJECT_ROOT }}
-          ./gradlew compileDebugJavaWithJavac --no-daemon -Dorg.gradle.continue=true || true
+          # 1. Limpiamos para que CodeQL vea una compilación fresca
+          ./gradlew clean 
+          # 2. 'classes' compila Java y Kotlin sin intentar armar el APK (más rápido y menos errores)
+          ./gradlew classes --no-daemon -Dorg.gradle.continue=true || true
+          # 3. Verificamos si se crearon archivos .class (opcional para debug)
+          find . -name "*.class" | wc -l
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
