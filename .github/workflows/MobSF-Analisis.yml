@@ -50,10 +50,12 @@ jobs:
 
       - name: Build Android App
         run: |
-          # Damos permisos al gradlew que está en la raíz
-          chmod +x ./DamnVulnerableBank/gradlew
-          # Ejecutamos el build directamente (sin CD)
-          ./gradlew compileDebugJavaWithJavac --no-daemon -Dorg.gradle.continue=true || true
+          chmod +x ./gradlew
+          # 1. Limpiamos para asegurar que CodeQL vea una compilación desde cero
+          ./gradlew clean 
+          # 2. Usamos assembleDebug para forzar la compilación de Java y Kotlin
+          # Quitamos el '|| true' momentáneamente para ver el error real si falla
+          ./gradlew assembleDebug --no-daemon -Dorg.gradle.continue=true
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
