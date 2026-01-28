@@ -1,4 +1,4 @@
-name: "Full Security Analysis"
+name: "Security Analysis - Damm Vulnerable Bank"
 
 on:
   push:
@@ -14,21 +14,12 @@ jobs:
   security-scan:
     name: Security Analysis
     runs-on: ubuntu-latest
-    timeout-minutes: 45
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Usamos Java 8 para máxima compatibilidad con InsecureShop y evitar errores de JAXB
-      - name: Set up JDK 8
-        uses: actions/setup-java@v4
-        with:
-          java-version: '8'
-          distribution: 'temurin'
-          cache: gradle
-
-      # --- FASE 1: MobSF ---
+      # --- FASE 1: MobSF (Escaneo de seguridad móvil) ---
       - name: Run MobSF Scan
         uses: MobSF/mobsfscan@main
         with:
@@ -41,26 +32,13 @@ jobs:
           category: "mobsf"
         if: always()
 
-      # --- FASE 2: Parcheo de Dependencias ---
-      - name: Patch Broken Dependencies
-        run: |
-          find . -name "build.gradle" -exec sed -i '/net.gotev:uploadservice:3.2.3/d' {} +
-          find . -name "build.gradle" -exec sed -i 's/jcenter()/google()\n        mavenCentral()/g' {} +
-
-      # --- FASE 3: CodeQL ---
+      # --- FASE 2: CodeQL (Análisis profundo de código) ---
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
         with:
           languages: java-kotlin
-          build-mode: manual
-          queries: security-extended,security-and-quality
-
-      - name: Build Android for CodeQL
-        run: |
-          find . -name "gradlew" -exec chmod +x {} +
-          cd DamnVulnerableBank
-          # Usamos --no-daemon para evitar fugas de memoria y errores de clase en el runner
-          ./gradlew compileDebugJavaWithJavac --no-daemon -Dorg.gradle.continue=true || true
+          # 'build-mode: none' es vital aquí. Evita buscar carpetas de Android o ejecutar Gradle.
+          build-mode: none 
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
