@@ -58,7 +58,7 @@ jobs:
       - name: Build Android for CodeQL
         run: |
           find . -name "gradlew" -exec chmod +x {} +
-          cd InsecureShop-android
+          cd DamnVulnerableBank
           # Usamos --no-daemon para evitar fugas de memoria y errores de clase en el runner
           ./gradlew compileDebugJavaWithJavac --no-daemon -Dorg.gradle.continue=true || true
 
